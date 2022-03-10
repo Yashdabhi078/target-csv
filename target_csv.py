@@ -194,7 +194,7 @@ def discover(config):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help='Config file')
-    parser.add_argument('-d', '--discover', help='Do discovery')
+    parser.add_argument('-d', '--discover', help='Do discovery', action='store_true')
     parser.add_argument('-m', '--field-mappings', help='.json file path for streams fields mapping.', default=None)
     args = parser.parse_args()
 
