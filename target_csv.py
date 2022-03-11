@@ -143,16 +143,19 @@ def send_usage_stats():
 
 def read_csvs(path):
     streams = {}
-    list_csv = [file for file in os.listdir(path) if file[-4:] == ".csv"]
-    for file in list_csv:
-        try:
-            df = pandas.read_csv(path + file, sep='\t')
-            streams[file[:-4]] = Schema.from_dict({
-                "type": ["null", "object"],
-                "properties": {k: {"type": ["null", "string"]} for k in df.keys()}
-            })
-        except EmptyDataError:
-            logger.info("Skipping. %s is empty.", file)
+    try:
+        list_csv = [file for file in os.listdir(path) if file[-4:] == ".csv"]
+        for file in list_csv:
+            try:
+                df = pandas.read_csv(path + file, sep='\t')
+                streams[file[:-4]] = Schema.from_dict({
+                    "type": ["null", "object"],
+                    "properties": {k: {"type": ["null", "string"]} for k in df.keys()}
+                })
+            except EmptyDataError:
+                logger.info("Skipping. %s is empty.", file)
+    except FileNotFoundError:
+        pass
     return streams
 
 
