@@ -44,8 +44,8 @@ def flatten(d, parent_key='', sep='__'):
 
 
 def transform(records, stream_mappings):
-    field_mappings = stream_mappings.get("field_mappings", {})
-    return {field_mappings.get(k, k): r for k, r in records.items()}
+    fields_mapping = stream_mappings.get("fields_mapping", {})
+    return {fields_mapping.get(k, k): r for k, r in records.items()}
 
 
 def persist_messages(delimiter, quotechar, messages, destination_path, field_mapping_file=None):
@@ -56,10 +56,11 @@ def persist_messages(delimiter, quotechar, messages, destination_path, field_map
     validators = {}
     mappings = {}
 
+    logger.info("Read fields mapping file, %s", field_mapping_file)
     if field_mapping_file:
         with open(field_mapping_file) as input_json:
             mappings = json.load(input_json)
-
+    logger.info("mappings. %s", mappings)
     now = datetime.now().strftime('%Y%m%dT%H%M%S')
 
     for message in messages:
@@ -195,7 +196,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help='Config file')
     parser.add_argument('-d', '--discover', help='Do discovery', action='store_true')
-    parser.add_argument('-m', '--field-mappings', help='.json file path for streams fields mapping.', default=None)
+    parser.add_argument('-m', '--fields-mapping', help='.json file path for streams fields mapping.', default=None)
     args = parser.parse_args()
 
     if args.config:
@@ -220,7 +221,7 @@ def main():
                                  config.get('quotechar', '"'),
                                  input_messages,
                                  config.get('destination_path', ''),
-                                 args.field_mappings)
+                                 args.fields_mapping)
 
         emit_state(state)
         logger.debug("Exiting normally")
