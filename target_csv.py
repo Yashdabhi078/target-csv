@@ -94,25 +94,6 @@ def persist_messages(delimiter, quotechar, messages, destination_path, field_map
     return state
 
 
-def send_usage_stats():
-    try:
-        version = pkg_resources.get_distribution('target-csv').version
-        conn = http.client.HTTPConnection('collector.singer.io', timeout=10)
-        conn.connect()
-        params = {
-            'e': 'se',
-            'aid': 'singer',
-            'se_ca': 'target-csv',
-            'se_ac': 'open',
-            'se_la': version,
-        }
-        conn.request('GET', '/i?' + urllib.parse.urlencode(params))
-        response = conn.getresponse()
-        conn.close()
-    except:
-        logger.debug('Collection request failed')
-
-
 def read_csvs(path):
     streams = {}
     try:

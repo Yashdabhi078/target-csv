@@ -4,7 +4,7 @@ import json
 import collections
 
 from singer.catalog import Catalog
-
+import singer
 logger = singer.get_logger()
 
 
@@ -94,20 +94,6 @@ class TargetHelper:
             default=None)
 
         args = parser.parse_args()
-        if args.config:
-            setattr(args, 'config_path', args.config)
-            args.config = cls.load_json(args.config)
-        if args.state:
-            setattr(args, 'state_path', args.state)
-            args.state = cls.load_json(args.state)
-        else:
-            args.state = {}
-        if args.properties:
-            setattr(args, 'properties_path', args.properties)
-            args.properties = cls.load_json(args.properties)
-        if args.catalog:
-            setattr(args, 'catalog_path', args.catalog)
-            args.catalog = Catalog.load(args.catalog)
 
         cls.check_config(args.config, required_config_keys)
 
