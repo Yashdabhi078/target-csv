@@ -1,51 +1,23 @@
 #!/usr/bin/env python3
 
-import argparse
 import io
 import os
 import sys
 import json
 import csv
-import threading
-import http.client
-import urllib
 from datetime import datetime
-import collections
 
 import pandas
 from pandas.errors import EmptyDataError
-import pkg_resources
 
 from jsonschema.validators import Draft4Validator
 import singer
 from singer.schema import Schema
 from singer.catalog import Catalog, CatalogEntry
+from target_helper import TargetHelper
 
 logger = singer.get_logger()
-
-
-def emit_state(state):
-    if state is not None:
-        line = json.dumps(state)
-        logger.debug('Emitting state {}'.format(line))
-        sys.stdout.write("{}\n".format(line))
-        sys.stdout.flush()
-
-
-def flatten(d, parent_key='', sep='__'):
-    items = []
-    for k, v in d.items():
-        new_key = parent_key + sep + k if parent_key else k
-        if isinstance(v, collections.MutableMapping):
-            items.extend(flatten(v, new_key, sep=sep).items())
-        else:
-            items.append((new_key, str(v) if type(v) is list else v))
-    return dict(items)
-
-
-def transform(records, stream_mappings):
-    fields_mapping = stream_mappings.get("fields_mapping", {})
-    return {fields_mapping.get(k, k): r for k, r in records.items()}
+REQUIRED_CONFIG_KEYS = []
 
 
 def persist_messages(delimiter, quotechar, messages, destination_path, field_mapping_file=None):
@@ -83,8 +55,8 @@ def persist_messages(delimiter, quotechar, messages, destination_path, field_map
             filename = os.path.expanduser(os.path.join(destination_path, filename))
             file_is_empty = (not os.path.isfile(filename)) or os.stat(filename).st_size == 0
 
-            flattened_record = flatten(o['record'])
-            transformed_records = transform(flattened_record, stream_mapping)
+            flattened_record = TargetHelper.flatten(o['record'])
+            transformed_records = TargetHelper.transform(flattened_record, stream_mapping)
             if o['stream'] not in headers and not file_is_empty:
                 with open(filename, 'r') as csvfile:
                     reader = csv.reader(csvfile,
@@ -159,30 +131,12 @@ def read_csvs(path):
     return streams
 
 
-def create_metadata_for_report(schema, tap_stream_id):
-    mdata = [{"breadcrumb": [], "metadata": {"inclusion": "available"}}]
-
-    for key in schema.properties:
-        if "object" in schema.properties.get(key).type:
-            for prop in schema.properties.get(key).properties:
-                inclusion = "available"
-                mdata.extend([{
-                    "breadcrumb": ["properties", key, "properties", prop],
-                    "metadata": {"inclusion": inclusion}
-                }])
-        else:
-            inclusion = "available"
-            mdata.append({"breadcrumb": ["properties", key], "metadata": {"inclusion": inclusion}})
-
-    return mdata
-
-
 def discover(config):
     path = config["destination_path"]
     raw_schemas = read_csvs(path)
     streams = []
     for stream_id, schema in raw_schemas.items():
-        stream_metadata = create_metadata_for_report(schema, stream_id)
+        stream_metadata = TargetHelper.create_metadata_for_report(schema, stream_id)
         streams.append(
             CatalogEntry(
                 tap_stream_id=stream_id,
@@ -196,23 +150,13 @@ def discover(config):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', help='Config file')
-    parser.add_argument('-d', '--discover', help='Do discovery', action='store_true')
-    parser.add_argument('-m', '--fields-mapping', help='.json file path for streams fields mapping.', default=None)
-    args = parser.parse_args()
+    args = TargetHelper.parse_args(REQUIRED_CONFIG_KEYS)
 
     if args.config:
         with open(args.config) as input_json:
             config = json.load(input_json)
     else:
         config = {}
-
-    if not config.get('disable_collection', False):
-        logger.info('Sending version information to singer.io. ' +
-                    'To disable sending anonymous usage data, set ' +
-                    'the config parameter "disable_collection" to true')
-        threading.Thread(target=send_usage_stats).start()
 
     if args.discover:
         catalog = discover(config)
@@ -226,7 +170,7 @@ def main():
                                  config.get('destination_path', ''),
                                  args.fields_mapping)
 
-        emit_state(state)
+        TargetHelper.emit_state(state)
         logger.debug("Exiting normally")
 
 
